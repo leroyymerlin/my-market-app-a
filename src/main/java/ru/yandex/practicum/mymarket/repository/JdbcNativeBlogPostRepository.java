@@ -2,14 +2,17 @@ package ru.yandex.practicum.mymarket.repository;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.simple.SimpleJdbcInsert;
 import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Transactional;
 import ru.yandex.practicum.mymarket.model.Item;
 import ru.yandex.practicum.mymarket.model.Order;
 import ru.yandex.practicum.mymarket.model.Paging;
-import ru.yandex.practicum.mymarket.model.SortType;
 
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
+import java.util.Map;
 
 @Repository
 public class JdbcNativeBlogPostRepository implements MarketRepository, CartRepository, OrderRepository, FileRepository {
@@ -108,6 +111,7 @@ public class JdbcNativeBlogPostRepository implements MarketRepository, CartRepos
         ));
     }
 
+    @Transactional
     @Override
     public Item getIncreaseOrDecreaseItem(Long id, String action) {
         String sql = "PLUS".equalsIgnoreCase(action)
@@ -136,6 +140,7 @@ public class JdbcNativeBlogPostRepository implements MarketRepository, CartRepos
         return jdbcTemplate.queryForObject(sql, Integer.class);
     }
 
+    @Transactional
     @Override
     public List<Item> getIncreaseOrDecreaseCartItem(Long id, String action) {
         String updateSql = switch (action.toUpperCase()) {
@@ -214,5 +219,38 @@ public class JdbcNativeBlogPostRepository implements MarketRepository, CartRepos
         });
         order.setItems(items);
         return order;
+    }
+
+    @Transactional
+    @Override
+    public Long createOrderFromCart() {
+        String selectCartSql = "SELECT id, price, count FROM items WHERE count > 0";
+        List<Item> cartItems = jdbcTemplate.query(selectCartSql, (rs, rowNum) -> {
+            Item item = new Item();
+            item.setId(rs.getLong("id"));
+            item.setPrice(rs.getLong("price"));
+            item.setCount(rs.getInt("count"));
+            return item;
+        });
+
+        long totalSum = cartItems.stream()
+                .mapToLong(item -> item.getPrice() * item.getCount())
+                .sum();
+
+        SimpleJdbcInsert insertOrder = new SimpleJdbcInsert(jdbcTemplate)
+                .withTableName("orders")
+                .usingGeneratedKeyColumns("id");
+
+        long orderId = insertOrder.executeAndReturnKey(Map.of("total_sum", totalSum, "created_at", new Date())).longValue();
+
+        String insertOrderItemSql = "INSERT INTO order_items (order_id, item_id, count) VALUES (?, ?, ?)";
+        for (Item item : cartItems) {
+            jdbcTemplate.update(insertOrderItemSql, orderId, item.getId(), item.getCount());
+        }
+
+        String clearCartSql = "UPDATE items SET count = 0 WHERE count > 0";
+        jdbcTemplate.update(clearCartSql);
+
+        return orderId;
     }
 }

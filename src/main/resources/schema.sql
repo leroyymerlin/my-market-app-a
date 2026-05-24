@@ -11,7 +11,7 @@ create table if not exists items (
 );
 
 create table if not exists orders (
-    id BIGINT primary key,
+    id BIGINT AUTO_INCREMENT primary key,
     total_sum BIGINT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );

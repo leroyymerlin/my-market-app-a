@@ -20,4 +20,8 @@ public class OrderService {
     public Order getNewOrder(Long id) {
         return orderRepository.getNewOrder(id);
     }
+
+    public Long createOrderFromCart() {
+        return orderRepository.createOrderFromCart();
+    }
 }

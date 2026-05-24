@@ -101,10 +101,10 @@ public class MarketController {
 
     @PostMapping("/buy")
     public String buy() {
-        return "redirect:/orders/{id}?newOrder=true"; //TODO: пока непонятно где взять  id совершенного заказа
+        Long orderId = orderService.createOrderFromCart();
+        return "redirect:/orders/" + orderId + "?newOrder=true";
     }
 
-    //TODO: возможно доделать параметры запроса
     @PutMapping("/{id}/image")
     public String uploadFile(@RequestParam("image") MultipartFile file, @PathVariable(name = "id") int id) {
         return fileService.upload(id, file);
