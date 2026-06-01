@@ -4,13 +4,12 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.multipart.MultipartFile;
 import ru.yandex.practicum.mymarket.model.Item;
 import ru.yandex.practicum.mymarket.model.Order;
 import ru.yandex.practicum.mymarket.model.Paging;
 import ru.yandex.practicum.mymarket.service.CartService;
 import ru.yandex.practicum.mymarket.service.FileService;
-import ru.yandex.practicum.mymarket.service.MarketService;
+import ru.yandex.practicum.mymarket.service.ItemService;
 import ru.yandex.practicum.mymarket.service.OrderService;
 
 import java.util.List;
@@ -21,7 +20,7 @@ import java.util.List;
 public class MarketController {
 
     private final FileService fileService;
-    private final MarketService marketService;
+    private final ItemService marketService;
     private final CartService cartService;
     private final OrderService orderService;
 
@@ -31,7 +30,7 @@ public class MarketController {
                            @RequestParam(required = false, defaultValue = "1") int pageNumber,
                            @RequestParam(required = false, defaultValue = "5") int pageSize,
                            Model model) {
-        Paging paging = marketService.getPaging(search, pageNumber, pageSize);
+        Paging paging = marketService.getPaging(search, pageNumber, pageSize, sort);
         List<Item> items = marketService.getItems(search, sort, pageNumber, pageSize);
         model.addAttribute("items", items);
         model.addAttribute("paging", paging);
@@ -69,7 +68,7 @@ public class MarketController {
     @GetMapping("/cart/items")
     public String getCartItems(Model model) {
         List<Item> items = cartService.getCartItems();
-        int total = cartService.getTotal();
+        Long total = cartService.getTotal();
         model.addAttribute("items", items);
         model.addAttribute("total", total);
         return "cart";
@@ -77,8 +76,8 @@ public class MarketController {
 
     @PostMapping("/cart/items")
     public String getIncreaseOrDecreaseCartItem(@RequestParam Long id, @RequestParam String action, Model model) {
-        List<Item> items = cartService.getIncreaseOrDecreaseCartItem(id, action);
-        int total = cartService.getTotal();
+        List<Item> items = cartService.increaseOrDecreaseCartItem(id, action);
+        Long total = cartService.getTotal();
         model.addAttribute("items", items);
         model.addAttribute("total", total);
         return "cart";
@@ -106,7 +105,7 @@ public class MarketController {
     }
 
     @PutMapping("/{id}/image")
-    public String uploadFile(@RequestParam("image") MultipartFile file, @PathVariable(name = "id") int id) {
-        return fileService.upload(id, file);
+    public void uploadFile(@RequestParam("image") byte[] file, @PathVariable(name = "id") Long id) {
+       fileService.upload(id, file);
     }
 }

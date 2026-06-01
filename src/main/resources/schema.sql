@@ -17,10 +17,10 @@ create table if not exists orders (
 );
 
 CREATE TABLE IF NOT EXISTS order_items (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
     order_id BIGINT,
     item_id BIGINT,
     count INT NOT NULL,
-    PRIMARY KEY (order_id, item_id),
     FOREIGN KEY (order_id) REFERENCES orders(id),
     FOREIGN KEY (item_id) REFERENCES items(id)
 );

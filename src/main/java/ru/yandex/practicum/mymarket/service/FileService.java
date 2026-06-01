@@ -2,38 +2,21 @@ package ru.yandex.practicum.mymarket.service;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
-import org.springframework.web.multipart.MultipartFile;
-import ru.yandex.practicum.mymarket.repository.FileRepository;
-
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.util.Objects;
+import ru.yandex.practicum.mymarket.model.Item;
+import ru.yandex.practicum.mymarket.repository.ItemRepository;
+import java.util.Arrays;
 
 @RequiredArgsConstructor
 @Service
 public class FileService {
 
-    private final FileRepository fileRepository;
+    private final ItemRepository itemRepository;
 
-    public static final String UPLOAD_DIR = "uploads/";
-
-    public String upload(int id, MultipartFile file) {
-        try {
-            Path uploadDir = Paths.get(UPLOAD_DIR);
-            if (!Files.exists(uploadDir)) {
-                Files.createDirectories(uploadDir);
-            }
-
-            Path filePath = uploadDir.resolve(Objects.requireNonNull(file.getOriginalFilename()));
-            file.transferTo(filePath);
-            fileRepository.addImage(id, file.getBytes(), file.getContentType());
-            return file.getOriginalFilename();
-
-        } catch (IOException e) {
-            throw new RuntimeException(e.getMessage(), e);
-        }
+    public void upload(Long id, byte[] file) {
+        Item item = itemRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Не найден товар с id: " + id));
+        item.setImgPath(Arrays.toString(file));
+        itemRepository.save(item);
     }
 
 }

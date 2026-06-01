@@ -14,14 +14,20 @@ public class CartService {
     private final CartRepository cartRepository;
 
     public List<Item> getCartItems() {
-        return cartRepository.getCartItems();
+        return cartRepository.findByCountGreaterThan(0);
     }
 
-    public int getTotal() {
+    public Long getTotal() {
         return cartRepository.getTotal();
     }
 
-    public List<Item> getIncreaseOrDecreaseCartItem(Long id, String action) {
-        return cartRepository.getIncreaseOrDecreaseCartItem(id, action);
+    public List<Item> increaseOrDecreaseCartItem(Long id, String action) {
+        switch (action.toUpperCase()) {
+            case "PLUS": cartRepository.incrementCount(id); break;
+            case "MINUS": cartRepository.decrementCount(id); break;
+            case "DELETE": cartRepository.deleteFromCart(id); break;
+            default: throw new IllegalArgumentException("Неизвестное действие: " + action);
+        }
+        return getCartItems();
     }
 }
