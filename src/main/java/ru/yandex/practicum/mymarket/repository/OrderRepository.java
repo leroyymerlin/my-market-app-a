@@ -1,20 +1,15 @@
 package ru.yandex.practicum.mymarket.repository;
 
-import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.r2dbc.repository.Query;
+import org.springframework.data.r2dbc.repository.R2dbcRepository;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
+import reactor.core.publisher.Mono;
 import ru.yandex.practicum.mymarket.model.Order;
 
-import java.util.Optional;
-
 @Repository
-public interface OrderRepository extends JpaRepository<Order, Long> {
+public interface OrderRepository extends R2dbcRepository<Order, Long> {
 
-    @Query("""
-        SELECT o FROM Order o LEFT JOIN FETCH o.orderItems oi 
-        LEFT JOIN FETCH oi.item 
-        WHERE o.id = :id
-        """)
-    Optional<Order> findByIdWithItems(@Param("id") Long id);
+    @Query("SELECT oi.*, i.* FROM order_items oi JOIN items i ON oi.item_id = i.id WHERE oi.order_id = :orderId")
+    Mono<Order> findByIdWithItems(@Param("id") Long id);
 }

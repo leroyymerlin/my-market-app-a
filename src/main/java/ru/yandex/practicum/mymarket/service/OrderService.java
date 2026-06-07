@@ -3,7 +3,8 @@ package ru.yandex.practicum.mymarket.service;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import ru.yandex.practicum.mymarket.model.Item;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 import ru.yandex.practicum.mymarket.model.Order;
 import ru.yandex.practicum.mymarket.model.OrderItem;
 import ru.yandex.practicum.mymarket.repository.CartRepository;
@@ -12,8 +13,6 @@ import ru.yandex.practicum.mymarket.repository.OrderItemRepository;
 import ru.yandex.practicum.mymarket.repository.OrderRepository;
 
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
 
 @RequiredArgsConstructor
 @Service
@@ -25,43 +24,49 @@ public class OrderService {
     private final OrderItemRepository orderItemRepository;
 
     @Transactional(readOnly = true)
-    public List<Order> getOrders() {
+    public Flux<Order> getOrders() {
         return orderRepository.findAll();
     }
 
     @Transactional(readOnly = true)
-    public Order getNewOrder(Long id) {
-        return orderRepository.findById(id).orElseThrow(() -> new IllegalArgumentException("Не удалось найти запись"));
+    public Mono<Order> getNewOrder(Long id) {
+        return  orderRepository.findById(id)
+                .switchIfEmpty(Mono.error(new IllegalArgumentException("Не удалось найти запись")));
     }
 
-    public Long createOrderFromCart() {
-        List<Item> cartItems = cartRepository.findByCountGreaterThan(0);
+    public Mono<Long> createOrderFromCart() {
+        return cartRepository.findByCountGreaterThan(0)
+                .collectList()
+                .flatMap(cartItems -> {
+                    if (cartItems.isEmpty()) {
+                        return Mono.error(new IllegalStateException("Корзина пуста"));
+                    }
+                    long totalSum = cartItems.stream()
+                            .mapToLong(item -> item.getPrice() * item.getCount())
+                            .sum();
 
-        long totalSum = cartItems.stream()
-                .mapToLong(item -> item.getPrice() * item.getCount())
-                .sum();
+                    Order order = new Order();
+                    order.setTotalSum(totalSum);
+                    order.setCreatedAt(LocalDateTime.now());
 
-        Order order = new Order();
-        order.setTotalSum(totalSum);
-        order.setCreatedAt(LocalDateTime.now());
-        Order savedOrder = orderRepository.save(order);
-        Long orderId = savedOrder.getId();
-
-        List<OrderItem> orderItems = new ArrayList<>();
-        for (Item item : cartItems) {
-            OrderItem orderItem = new OrderItem();
-            orderItem.setOrder(savedOrder);
-            orderItem.setItem(item);
-            orderItem.setCount(item.getCount());
-            orderItems.add(orderItem);
-        }
-        order.setOrderItems(orderItems);
-        orderItemRepository.saveAll(orderItems);
-        for (Item item : cartItems) {
-            item.setCount(0);
-            itemRepository.save(item);
-        }
-
-        return orderId;
+                    return orderRepository.save(order)
+                            .flatMap(savedOrder -> {
+                                Flux<OrderItem> orderItemsFlux = Flux.fromIterable(cartItems)
+                                        .map(item -> {
+                                            OrderItem oi = new OrderItem();
+                                            oi.setOrderId(savedOrder.getId());
+                                            oi.setItemId(item.getId());
+                                            oi.setCount(item.getCount());
+                                            return oi;
+                                        });
+                                return orderItemRepository.saveAll(orderItemsFlux)
+                                        .thenMany(Flux.fromIterable(cartItems))
+                                        .flatMap(item -> {
+                                            item.setCount(0);
+                                            return itemRepository.save(item);
+                                        })
+                                        .then(Mono.just(savedOrder.getId()));
+                            });
+                });
     }
 }

@@ -1,77 +1,86 @@
 package ru.yandex.practicum.mymarket.repository;
 
-import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
-import org.springframework.transaction.annotation.Transactional;
+import org.springframework.boot.test.autoconfigure.data.r2dbc.DataR2dbcTest;
+import org.springframework.test.context.ActiveProfiles;
+import reactor.core.publisher.Flux;
+import reactor.test.StepVerifier;
 import ru.yandex.practicum.mymarket.model.Item;
 
-import java.util.List;
-
-import static org.assertj.core.api.AssertionsForInterfaceTypes.assertThat;
-
-@DataJpaTest
-@Transactional
+@DataR2dbcTest
+@ActiveProfiles("test")
 class CartRepositoryTest {
 
     @Autowired
     private CartRepository cartRepository;
-    @Autowired
-    EntityManager entityManager;
+
+    private Long item1Id;
+    private Long item2Id;
 
     @BeforeEach
     void setUp() {
         Item item1 = new Item();
-        item1.setId(1L);
         item1.setTitle("Товар 1");
         item1.setPrice(100L);
         item1.setCount(2);
-        cartRepository.save(item1);
 
         Item item2 = new Item();
-        item2.setId(2L);
         item2.setTitle("Товар 2");
         item2.setPrice(200L);
         item2.setCount(0);
-        cartRepository.save(item2);
+
+        cartRepository.deleteAll()
+                .thenMany(cartRepository.saveAll(Flux.just(item1, item2)))
+                .collectList()
+                .doOnNext(items -> {
+                    item1Id = items.get(0).getId();
+                    item2Id = items.get(1).getId();
+                })
+                .block();
     }
 
     @Test
     void findByCountGreaterThan() {
-        List<Item> items = cartRepository.findByCountGreaterThan(0);
-        assertThat(items).hasSize(1);
-        assertThat(items.get(0).getId()).isEqualTo(1L);
+        cartRepository.findByCountGreaterThan(0)
+                .as(StepVerifier::create)
+                .expectNextCount(1)
+                .verifyComplete();
     }
 
     @Test
     void getTotal() {
-        Long total = cartRepository.getTotal();
-        assertThat(total).isEqualTo(200L);
+        cartRepository.getTotal()
+                .as(StepVerifier::create)
+                .expectNext(200L)
+                .verifyComplete();
     }
 
     @Test
     void incrementCount() {
-        cartRepository.incrementCount(1L);
-        entityManager.clear();
-        Item updated = cartRepository.findById(1L).orElseThrow();
-        assertThat(updated.getCount()).isEqualTo(3);
+        cartRepository.incrementCount(item1Id)
+                .then(cartRepository.findById(item1Id))
+                .as(StepVerifier::create)
+                .expectNextMatches(item -> item.getCount() == 3)
+                .verifyComplete();
     }
 
     @Test
     void decrementCount() {
-        cartRepository.decrementCount(1L);
-        entityManager.clear();
-        Item updated = cartRepository.findById(1L).orElseThrow();
-        assertThat(updated.getCount()).isEqualTo(1);
+        cartRepository.decrementCount(item1Id)
+                .then(cartRepository.findById(item1Id))
+                .as(StepVerifier::create)
+                .expectNextMatches(item -> item.getCount() == 1)
+                .verifyComplete();
     }
 
     @Test
     void deleteFromCart() {
-        cartRepository.deleteFromCart(1L);
-        entityManager.clear();
-        Item updated = cartRepository.findById(1L).orElseThrow();
-        assertThat(updated.getCount()).isZero();
+        cartRepository.deleteFromCart(item1Id)
+                .then(cartRepository.findById(item1Id))
+                .as(StepVerifier::create)
+                .expectNextMatches(item -> item.getCount() == 0)
+                .verifyComplete();
     }
 }

@@ -1,10 +1,13 @@
 package ru.yandex.practicum.mymarket.model;
 
-import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import org.springframework.data.annotation.Id;
+import org.springframework.data.annotation.Transient;
+import org.springframework.data.relational.core.mapping.Column;
+import org.springframework.data.relational.core.mapping.Table;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -14,21 +17,19 @@ import java.util.List;
 @NoArgsConstructor
 @Getter
 @Setter
-@Entity
 @Table(name = "orders")
 public class Order {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "created_at")
+    @Column("created_at")
     private LocalDateTime createdAt;
 
-    @OneToMany(mappedBy = "order")
+    @Transient
     private List<OrderItem> orderItems = new ArrayList<>();
 
-    @Column(name = "total_sum")
+    @Column("total_sum")
     private Long totalSum;
 
 }
