@@ -11,12 +11,14 @@ import java.util.Arrays;
 public class FileService {
 
     private final ItemRepository itemRepository;
+    private final ItemService itemService;
 
     public Mono<Void> upload(Long id, byte[] file) {
         return itemRepository.findById(id)
                 .switchIfEmpty(Mono.error(new RuntimeException("Не найден товар с id: " + id)))
                 .doOnNext(item -> item.setImgPath(Arrays.toString(file)))
                 .flatMap(itemRepository::save)
+                .then(itemService.clearItemsCache()) // добавляем очистку
                 .then();
     }
 
