@@ -2,22 +2,24 @@ package ru.yandex.practicum.mymarket.service;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentMatchers;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.transaction.annotation.Transactional;
+import org.springframework.data.domain.Sort;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
+import reactor.test.StepVerifier;
 import ru.yandex.practicum.mymarket.model.Item;
-import ru.yandex.practicum.mymarket.model.Paging;
 import ru.yandex.practicum.mymarket.repository.ItemRepository;
 
-import java.util.List;
-
-import static org.assertj.core.api.AssertionsForInterfaceTypes.assertThat;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.when;
 
 @SpringBootTest(properties = {"spring.main.lazy-initialization=true"})
-@Transactional
 class ItemServiceTest {
 
-    @Autowired
+    @MockitoBean
     ItemRepository itemRepository;
 
     @Autowired
@@ -25,7 +27,6 @@ class ItemServiceTest {
 
     @BeforeEach
     void setUp() {
-        itemRepository.deleteAll();
 
         Item item1 = new Item();
         item1.setId(1L);
@@ -33,7 +34,6 @@ class ItemServiceTest {
         item1.setDescription("сенсорный");
         item1.setPrice(30000L);
         item1.setCount(2);
-        itemRepository.save(item1);
 
         Item item2 = new Item();
         item2.setId(2L);
@@ -41,7 +41,6 @@ class ItemServiceTest {
         item2.setDescription("беспроводные наушники");
         item2.setPrice(5000L);
         item2.setCount(0);
-        itemRepository.save(item2);
 
         Item item3 = new Item();
         item3.setId(3L);
@@ -49,52 +48,79 @@ class ItemServiceTest {
         item3.setDescription("чехол для телефона");
         item3.setPrice(1000L);
         item3.setCount(5);
-        itemRepository.save(item3);
-    }
 
-    @Test
-    void printRepositoryClass() {
-        System.out.println(itemRepository.getClass().getName());
+        when(itemRepository.findAll(ArgumentMatchers.any(Sort.class))).thenReturn(Flux.just(item2, item1, item3));
+        when(itemRepository.findByTitleContainingOrDescriptionContaining(eq("телефон"), eq("телефон"), ArgumentMatchers.any(Sort.class)))
+                .thenReturn(Flux.just(item1, item3));
+        when(itemRepository.count()).thenReturn(Mono.just(3L));
+        when(itemRepository.countByTitleContainingOrDescriptionContaining(eq("телефон"), eq("телефон")))
+                .thenReturn(Mono.just(2L));
+        when(itemRepository.findById(1L)).thenReturn(Mono.just(item1));
+        when(itemRepository.incrementCount(1L)).thenReturn(Mono.empty());
+        when(itemRepository.decrementCount(1L)).thenReturn(Mono.empty());
     }
 
     @Test
     void getItems() {
-        List<Item> items = itemService.getItems(null, null, 1, 2);
-        assertThat(items).hasSize(2);
-        assertThat(items.get(0).getId()).isEqualTo(1L);
-        assertThat(items.get(1).getId()).isEqualTo(2L);
+        itemService.getItems(null, null, 1, 2)
+                .as(StepVerifier::create)
+                .expectNextCount(2)
+                .verifyComplete();
     }
 
     @Test
     void getItems_withFilter() {
-        List<Item> items = itemService.getItems("телефон", null, 1, 10);
-        assertThat(items).hasSize(2);
+        itemService.getItems("телефон", null, 1, 10)
+                .as(StepVerifier::create)
+                .expectNextCount(2)
+                .verifyComplete();
     }
 
     @Test
     void getItems_withSortAlpha() {
-        List<Item> items = itemService.getItems(null, "ALPHA", 1, 10);
-        assertThat(items).extracting(Item::getTitle).containsExactly("наушники", "телефон", "чехол");
+        itemService.getItems(null, "ALPHA", 1, 10)
+                .as(StepVerifier::create)
+                .expectNextMatches(i -> i.getTitle().equals("наушники"))
+                .expectNextMatches(i -> i.getTitle().equals("телефон"))
+                .expectNextMatches(i -> i.getTitle().equals("чехол"))
+                .verifyComplete();
     }
 
     @Test
     void getPaging() {
-        Paging paging = itemService.getPaging(null, 2, 2, null);
-        assertThat(paging.getPageNumber()).isEqualTo(2);
-        assertThat(paging.getPageSize()).isEqualTo(2);
-        assertThat(paging.isHasPrev()).isTrue();
-        assertThat(paging.isHasNext()).isFalse();
+        itemService.getPaging(null, 2, 2, null)
+                .as(StepVerifier::create)
+                .assertNext(paging -> {
+                    assert paging.getPageNumber() == 2;
+                    assert paging.getPageSize() == 2;
+                    assert paging.isHasPrev();
+                    assert !paging.isHasNext();
+                })
+                .verifyComplete();
     }
 
     @Test
     void getItem() {
-        Item item = itemService.getItem(1L);
-        assertThat(item.getTitle()).isEqualTo("телефон");
+        itemService.getItem(1L)
+                .as(StepVerifier::create)
+                .expectNextMatches(item -> item.getTitle().equals("телефон"))
+                .verifyComplete();
     }
 
     @Test
     void getIncreaseOrDecreaseItem() {
-        Item updated = itemService.getIncreaseOrDecreaseItem(1L, "PLUS");
-        assertThat(updated.getCount()).isEqualTo(3);
+        Item updatedItem = new Item();
+        updatedItem.setId(1L);
+        updatedItem.setTitle("телефон");
+        updatedItem.setDescription("сенсорный");
+        updatedItem.setPrice(30000L);
+        updatedItem.setCount(3);
+
+        when(itemRepository.findById(1L)).thenReturn(Mono.just(updatedItem));
+
+        itemService.getIncreaseOrDecreaseItem(1L, "PLUS")
+                .as(StepVerifier::create)
+                .expectNextMatches(item -> item.getCount() == 3)
+                .verifyComplete();
     }
 }

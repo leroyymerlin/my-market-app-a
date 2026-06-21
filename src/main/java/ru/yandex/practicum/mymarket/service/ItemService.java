@@ -1,17 +1,14 @@
 package ru.yandex.practicum.mymarket.service;
 
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 import ru.yandex.practicum.mymarket.model.Item;
 import ru.yandex.practicum.mymarket.model.Paging;
 import ru.yandex.practicum.mymarket.repository.ItemRepository;
-
-import java.util.List;
 
 @RequiredArgsConstructor
 @Service
@@ -19,33 +16,38 @@ public class ItemService {
 
     private final ItemRepository itemRepository;
 
-    public List<Item> getItems(String search, String sort, int pageNumber, int pageSize) {
-        Pageable pageable = PageRequest.of(pageNumber - 1, pageSize, buildSort(sort));
-        Page<Item> page;
+    public Flux<Item> getItems(String search, String sort, int pageNumber, int pageSize) {
+        int offset = (pageNumber - 1) * pageSize;
+        Sort sortObj = buildSort(sort);
+
         if (search != null && !search.isBlank()) {
-            page = itemRepository.findByTitleContainingOrDescriptionContaining(search, search, pageable);
+            return itemRepository.findByTitleContainingOrDescriptionContaining(search, search, sortObj)
+                    .skip(offset)
+                    .take(pageSize);
         } else {
-            page = itemRepository.findAll(pageable);
+            return itemRepository.findAll(sortObj)
+                    .skip(offset)
+                    .take(pageSize);
         }
-        return page.getContent();
     }
 
-    public Paging getPaging(String search, int pageNumber, int pageSize, String sortType) {
-        Pageable pageable = PageRequest.of(pageNumber - 1, pageSize, buildSort(sortType));
+    public Mono<Paging> getPaging(String search, int pageNumber, int pageSize, String sortType) {
+        Mono<Long> totalCount;
 
-        Page<Item> page;
         if (search != null && !search.isBlank()) {
-            page = itemRepository.findByTitleContainingOrDescriptionContaining(search, search, pageable);
+            totalCount = itemRepository.countByTitleContainingOrDescriptionContaining(search, search);
         } else {
-            page = itemRepository.findAll(pageable);
+            totalCount = itemRepository.count();
         }
 
-        Paging paging = new Paging();
-        paging.setPageNumber(pageNumber);
-        paging.setPageSize(pageSize);
-        paging.setHasPrev(page.hasPrevious());
-        paging.setHasNext(page.hasNext());
-        return paging;
+        return totalCount.map(total -> {
+            Paging paging = new Paging();
+            paging.setPageNumber(pageNumber);
+            paging.setPageSize(pageSize);
+            paging.setHasPrev(pageNumber > 1);
+            paging.setHasNext((long) pageNumber * pageSize < total);
+            return paging;
+        });
     }
 
     private Sort buildSort(String sortType) {
@@ -58,17 +60,16 @@ public class ItemService {
     }
 
     @Transactional(readOnly = true)
-    public Item getItem(Long id) {
-        return itemRepository.findById(id).orElseThrow(() -> new IllegalArgumentException("Не удалось найти запись"));
+    public Mono<Item> getItem(Long id) {
+        return itemRepository.findById(id)
+                .switchIfEmpty(Mono.error(new IllegalArgumentException("Не удалось найти запись")));
     }
 
-    public Item getIncreaseOrDecreaseItem(Long id, String action) {
-        if ("PLUS".equalsIgnoreCase(action)) {
-            itemRepository.incrementCount(id);
-        } else {
-            itemRepository.decrementCount(id);
-        }
-        return getItem(id);
+    public Mono<Item> getIncreaseOrDecreaseItem(Long id, String action) {
+        return ("PLUS".equalsIgnoreCase(action)
+                ? itemRepository.incrementCount(id).then()
+                : itemRepository.decrementCount(id).then())
+                .then(getItem(id));
     }
 
 }

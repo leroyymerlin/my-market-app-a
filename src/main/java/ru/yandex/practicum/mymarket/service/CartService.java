@@ -2,10 +2,10 @@ package ru.yandex.practicum.mymarket.service;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 import ru.yandex.practicum.mymarket.model.Item;
 import ru.yandex.practicum.mymarket.repository.CartRepository;
-
-import java.util.List;
 
 @RequiredArgsConstructor
 @Service
@@ -13,21 +13,29 @@ public class CartService {
 
     private final CartRepository cartRepository;
 
-    public List<Item> getCartItems() {
+    public Flux<Item> getCartItems() {
         return cartRepository.findByCountGreaterThan(0);
     }
 
-    public Long getTotal() {
+    public Mono<Long> getTotal() {
         return cartRepository.getTotal();
     }
 
-    public List<Item> increaseOrDecreaseCartItem(Long id, String action) {
+    public Flux<Item> increaseOrDecreaseCartItem(Long id, String action) {
+        Mono<Void> operation;
         switch (action.toUpperCase()) {
-            case "PLUS": cartRepository.incrementCount(id); break;
-            case "MINUS": cartRepository.decrementCount(id); break;
-            case "DELETE": cartRepository.deleteFromCart(id); break;
-            default: throw new IllegalArgumentException("Неизвестное действие: " + action);
+            case "PLUS":
+                operation = cartRepository.incrementCount(id).then();
+                break;
+            case "MINUS":
+                operation = cartRepository.decrementCount(id).then();
+                break;
+            case "DELETE":
+                operation = cartRepository.deleteFromCart(id).then();
+                break;
+            default:
+                return Flux.error(new IllegalArgumentException("Неизвестное действие: " + action));
         }
-        return getCartItems();
+        return operation.thenMany(getCartItems());
     }
 }

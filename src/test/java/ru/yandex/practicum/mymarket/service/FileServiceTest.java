@@ -1,38 +1,41 @@
 package ru.yandex.practicum.mymarket.service;
 
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.transaction.annotation.Transactional;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import reactor.core.publisher.Mono;
+import reactor.test.StepVerifier;
 import ru.yandex.practicum.mymarket.model.Item;
 import ru.yandex.practicum.mymarket.repository.ItemRepository;
 
-import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
+import java.util.Arrays;
+
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.when;
 
 @SpringBootTest(properties = {"spring.main.lazy-initialization=true"})
-@Transactional
 class FileServiceTest {
 
     @Autowired
     private FileService fileService;
 
-    @Autowired
+    @MockitoBean
     private ItemRepository itemRepository;
 
     @Test
     void upload_ShouldCreateDirectoryAndSaveFileAndCallRepository() {
-        itemRepository.deleteAll();
+        Item item = new Item(1L, "Тестовый товар", "test", "img", 100L, 0);
 
-        Item item = new Item();
-        item.setId(1L);
-        item.setTitle("Тестовый товар");
-        item.setPrice(100L);
-        item.setCount(0);
-        Long  existingItemId = itemRepository.save(item).getId();
+        when(itemRepository.findById(1L)).thenReturn(Mono.just(item));
+        when(itemRepository.save(any(Item.class))).thenReturn(Mono.just(item));
+
         byte[] imageBytes = {1, 2, 3, 4, 5};
-        fileService.upload(existingItemId, imageBytes);
+        fileService.upload(1L, imageBytes)
+                .as(StepVerifier::create)
+                .verifyComplete();
 
-        Item updated = itemRepository.findById(existingItemId).orElseThrow();
-        assertThat(updated.getImgPath()).isEqualTo(java.util.Arrays.toString(imageBytes));
+        Assertions.assertEquals(item.getImgPath(), Arrays.toString(imageBytes));
     }
 }

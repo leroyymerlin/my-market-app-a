@@ -1,7 +1,7 @@
 
 create table if not exists items (
-    id BIGINT primary key,
-    title text not null,
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    title text NOT NULL,
     description text,
     img_path text,
     price BIGINT,
