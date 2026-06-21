@@ -43,6 +43,7 @@
                                 <useBeanValidation>true</useBeanValidation>
                                 <skipDefaultInterface>true</skipDefaultInterface>
                                 <dateLibrary>java</dateLibrary>
+                                <reactive>true</reactive>
                             </configOptions>
                             <verbose>true</verbose>
                             <skipValidateSpec>false</skipValidateSpec>

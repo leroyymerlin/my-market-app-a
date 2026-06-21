@@ -3,6 +3,8 @@ package ru.yandex.practicum.controller;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.server.ServerWebExchange;
+import reactor.core.publisher.Mono;
 import ru.ya.api.DefaultApi;
 import ru.ya.domain.BalanceResponse;
 import ru.ya.domain.ChargeRequest;
@@ -16,13 +18,16 @@ public class PaymentController implements DefaultApi {
     private final PaymentService paymentService;
 
     @Override
-    public ResponseEntity<ChargeResponse> charge(ChargeRequest chargeRequest) {
-        ChargeResponse response = paymentService.charge(chargeRequest);
-        return ResponseEntity.ok().body(response);
+    public Mono<ResponseEntity<ChargeResponse>> charge(Mono<ChargeRequest> chargeRequest, ServerWebExchange exchange) {
+        return chargeRequest
+                .flatMap(paymentService::charge)
+                .map(ResponseEntity::ok)
+                .defaultIfEmpty(ResponseEntity.badRequest().build());
     }
 
     @Override
-    public ResponseEntity<BalanceResponse> getBalance() {
-        return ResponseEntity.ok().body(new BalanceResponse().balance(200000L));
+    public Mono<ResponseEntity<BalanceResponse>> getBalance(ServerWebExchange exchange) {
+        return paymentService.getBalance()
+                .map(ResponseEntity::ok);
     }
 }

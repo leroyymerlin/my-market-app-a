@@ -7,6 +7,7 @@ import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import ru.ya.domain.BalanceResponse;
 import ru.yandex.practicum.mymarket.client.PaymentClient;
 import ru.yandex.practicum.mymarket.model.Item;
 import ru.yandex.practicum.mymarket.model.Order;
@@ -15,6 +16,8 @@ import ru.yandex.practicum.mymarket.service.CartService;
 import ru.yandex.practicum.mymarket.service.FileService;
 import ru.yandex.practicum.mymarket.service.ItemService;
 import ru.yandex.practicum.mymarket.service.OrderService;
+
+import java.util.List;
 
 @Slf4j
 @RequiredArgsConstructor
@@ -79,9 +82,19 @@ public class MarketController {
         Mono<BalanceResponse> balance = paymentClient.getBalance()
                 .defaultIfEmpty(new BalanceResponse().balance(0L));
 
-        model.addAttribute("items", items);
-        model.addAttribute("total", total);
-        return Mono.just("cart");
+        return Mono.zip(items.collectList(), total, balance)
+                .map(tuple -> {
+                    List<Item> itemList = tuple.getT1();
+                    Long totalAmount = tuple.getT2();
+                    BalanceResponse balanceResp = tuple.getT3();
+                    long balanceAmount = balanceResp.getBalance();
+
+                    boolean canBuy = totalAmount > 0 && balanceAmount >= totalAmount;
+                    model.addAttribute("items", itemList);
+                    model.addAttribute("total", totalAmount);
+                    model.addAttribute("canBuy", canBuy);
+                    return "cart";
+                });
     }
 
     @PostMapping("/cart/items")
@@ -115,8 +128,25 @@ public class MarketController {
 
     @PostMapping("/buy")
     public Mono<String> buy() {
-        return orderService.createOrderFromCart()
-                .map(orderId -> "redirect:/orders/" + orderId + "?newOrder=true");
+        return cartService.getTotal()
+                .flatMap(total -> {
+                    if (total == 0) {
+                        return Mono.just("redirect:/cart/items?error=Корзина пуста");
+                    }
+                    return paymentClient.charge(total, null)
+                            .flatMap(chargeResponse -> {
+                                if (chargeResponse.getSuccess()) {
+                                    return orderService.createOrderFromCart()
+                                            .map(orderId -> "redirect:/orders/" + orderId + "?newOrder=true");
+                                } else {
+                                    String message = chargeResponse.getMessage() != null
+                                            ? chargeResponse.getMessage()
+                                            : "Ошибка оплаты";
+                                    return Mono.just("redirect:/cart/items?error=" + message);
+                                }
+                            });
+                })
+                .onErrorResume(e -> Mono.just("redirect:/cart/items?error=Сервис платежей недоступен"));
     }
 
     @PutMapping("/{id}/image")
