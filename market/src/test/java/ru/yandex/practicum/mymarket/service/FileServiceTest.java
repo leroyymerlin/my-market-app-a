@@ -13,6 +13,7 @@ import ru.yandex.practicum.mymarket.repository.ItemRepository;
 import java.util.Arrays;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @SpringBootTest(properties = {"spring.main.lazy-initialization=true"})
@@ -24,12 +25,16 @@ class FileServiceTest {
     @MockitoBean
     private ItemRepository itemRepository;
 
+    @MockitoBean
+    private ItemService itemService;
+
     @Test
     void upload_ShouldCreateDirectoryAndSaveFileAndCallRepository() {
         Item item = new Item(1L, "Тестовый товар", "test", "img", 100L, 0);
 
         when(itemRepository.findById(1L)).thenReturn(Mono.just(item));
         when(itemRepository.save(any(Item.class))).thenReturn(Mono.just(item));
+        when(itemService.clearItemsCache()).thenReturn(Mono.empty());
 
         byte[] imageBytes = {1, 2, 3, 4, 5};
         fileService.upload(1L, imageBytes)
@@ -37,5 +42,7 @@ class FileServiceTest {
                 .verifyComplete();
 
         Assertions.assertEquals(item.getImgPath(), Arrays.toString(imageBytes));
+        verify(itemService).clearItemsCache();
+
     }
 }
