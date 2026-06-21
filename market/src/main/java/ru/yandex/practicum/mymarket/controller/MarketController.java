@@ -7,6 +7,7 @@ import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import ru.yandex.practicum.mymarket.client.PaymentClient;
 import ru.yandex.practicum.mymarket.model.Item;
 import ru.yandex.practicum.mymarket.model.Order;
 import ru.yandex.practicum.mymarket.model.Paging;
@@ -25,6 +26,8 @@ public class MarketController {
     private final ItemService marketService;
     private final CartService cartService;
     private final OrderService orderService;
+
+    private final PaymentClient paymentClient;
 
     @GetMapping({"/", "/items"})
     public Mono<String> getItems(@RequestParam(required = false) String search,
@@ -72,6 +75,10 @@ public class MarketController {
     public Mono<String> getCartItems(Model model) {
         Flux<Item> items = cartService.getCartItems();
         Mono<Long> total = cartService.getTotal();
+
+        Mono<BalanceResponse> balance = paymentClient.getBalance()
+                .defaultIfEmpty(new BalanceResponse().balance(0L));
+
         model.addAttribute("items", items);
         model.addAttribute("total", total);
         return Mono.just("cart");
