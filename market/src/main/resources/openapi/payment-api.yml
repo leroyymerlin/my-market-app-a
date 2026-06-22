@@ -1,0 +1,113 @@
+openapi: 3.0.3
+info:
+  title: Payment Service API
+  description: Сервис управления балансом и проведения платежей
+  version: 1.0.0
+servers:
+  - url: http://localhost:8081/api/v1
+    description: Локальный сервер платежей
+
+paths:
+  /payment/balance:
+    get:
+      summary: Получить текущий баланс
+      operationId: getBalance
+      responses:
+        '200':
+          description: Успешный ответ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BalanceResponse'
+        '500':
+          description: Внутренняя ошибка сервера
+
+  /payment/charge:
+    post:
+      summary: Списать средства с баланса
+      operationId: charge
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChargeRequest'
+      responses:
+        '200':
+          description: Платёж успешно выполнен
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChargeResponse'
+        '400':
+          description: Недостаточно средств или некорректный запрос
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Внутренняя ошибка сервера
+
+components:
+  schemas:
+    BalanceResponse:
+      type: object
+      required:
+        - balance
+      properties:
+        balance:
+          type: integer
+          format: int64
+          description: Текущий баланс в минимальных единицах (например, копейках)
+          example: 100500
+
+    ChargeRequest:
+      type: object
+      required:
+        - amount
+      properties:
+        orderId:
+          type: integer
+          format: int64
+          description: Идентификатор заказа (опционально, для логирования)
+          example: 42
+        amount:
+          type: integer
+          format: int64
+          description: Сумма списания в минимальных единицах
+          minimum: 1
+          example: 5000
+
+    ChargeResponse:
+      type: object
+      required:
+        - success
+        - newBalance
+      properties:
+        success:
+          type: boolean
+          description: true – платёж проведён, false – отклонён
+          example: true
+        newBalance:
+          type: integer
+          format: int64
+          description: Новый баланс после списания (если успешно)
+          example: 95500
+        message:
+          type: string
+          description: Дополнительное сообщение об ошибке
+          example: "Payment successful"
+
+    ErrorResponse:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          type: string
+          description: Текст ошибки
+          example: "Insufficient funds"
+        timestamp:
+          type: string
+          format: date-time
+          description: Время возникновения ошибки

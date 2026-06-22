@@ -7,8 +7,9 @@ import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
-import ru.ya.domain.BalanceResponse;
-import ru.yandex.practicum.mymarket.client.PaymentClient;
+import ru.ya.client.api.DefaultApi;
+import ru.ya.client.domain.BalanceResponse;
+import ru.ya.client.domain.ChargeRequest;
 import ru.yandex.practicum.mymarket.model.Item;
 import ru.yandex.practicum.mymarket.model.Order;
 import ru.yandex.practicum.mymarket.model.Paging;
@@ -30,7 +31,7 @@ public class MarketController {
     private final CartService cartService;
     private final OrderService orderService;
 
-    private final PaymentClient paymentClient;
+    private final DefaultApi paymentApi;
 
     @GetMapping({"/", "/items"})
     public Mono<String> getItems(@RequestParam(required = false) String search,
@@ -79,7 +80,7 @@ public class MarketController {
         Flux<Item> items = cartService.getCartItems();
         Mono<Long> total = cartService.getTotal();
 
-        Mono<BalanceResponse> balance = paymentClient.getBalance()
+        Mono<BalanceResponse> balance = paymentApi.getBalance()
                 .defaultIfEmpty(new BalanceResponse().balance(0L));
 
         return Mono.zip(items.collectList(), total, balance)
@@ -133,7 +134,7 @@ public class MarketController {
                     if (total == 0) {
                         return Mono.just("redirect:/cart/items?error=Корзина пуста");
                     }
-                    return paymentClient.charge(total, null)
+                    return paymentApi.charge(new ChargeRequest().amount(total))
                             .flatMap(chargeResponse -> {
                                 if (chargeResponse.getSuccess()) {
                                     return orderService.createOrderFromCart()

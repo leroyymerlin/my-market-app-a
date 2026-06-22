@@ -85,8 +85,7 @@ public class ItemService {
         };
     }
 
-    @Transactional(readOnly = true)
-    public Mono<Item> getItem(Long id) {
+     public Mono<Item> getItem(Long id) {
         return itemRepository.findById(id)
                 .switchIfEmpty(Mono.error(new IllegalArgumentException("Не удалось найти запись")));
     }

@@ -9,6 +9,8 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.reactive.server.WebTestClient;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import ru.ya.client.api.DefaultApi;
+import ru.ya.client.domain.ChargeResponse;
 import ru.yandex.practicum.mymarket.model.Item;
 import ru.yandex.practicum.mymarket.model.Paging;
 import ru.yandex.practicum.mymarket.service.CartService;
@@ -33,6 +35,8 @@ class MarketControllerTest {
     private CartService cartService;
     @MockitoBean
     private OrderService orderService;
+    @MockitoBean
+    private DefaultApi paymentApi;
 
     @Test
     void getItems() {
@@ -81,6 +85,11 @@ class MarketControllerTest {
     @Test
     void buy() {
         when(orderService.createOrderFromCart()).thenReturn(Mono.just(123L));
+
+        when(cartService.getTotal()).thenReturn(Mono.just(1000L));
+        ChargeResponse chargeResponse = new ChargeResponse();
+        chargeResponse.setSuccess(true);
+        when(paymentApi.charge(any())).thenReturn(Mono.just(chargeResponse));
 
         webTestClient.post()
                 .uri("/buy")
