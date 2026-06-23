@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<html lang="en" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.w3.org/1999/xhtml">
 
 <head>
     <meta charset="utf-8">
@@ -11,6 +11,17 @@
 <body class="bg-light">
     <form id="main">
     </form>
+    <nav>
+        <div sec:authorize="isAuthenticated()">
+            <a href="/cart/items">Корзина</a>
+            <a href="/orders">Заказы</a>
+            <a href="/logout">Выйти</a>
+        </div>
+        <div sec:authorize="!isAuthenticated()">
+            <a href="/login">Войти</a>
+            <a href="/register">Регистрация</a>
+        </div>
+    </nav>
     <div class="container p-2">
         <div class="row p-2">
             <div class="col">
