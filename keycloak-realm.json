@@ -1,0 +1,38 @@
+{
+  "realm": "my-market-realm",
+  "enabled": true,
+  "displayName": "My Market Realm",
+  "clients": [
+    {
+      "clientId": "market",
+      "name": "Market",
+      "enabled": true,
+      "publicClient": false,
+      "protocol": "openid-connect",
+      "attributes": {
+        "oauth2.device.authorization.grant.enabled": "false"
+      },
+      "redirectUris": [],
+      "webOrigins": [],
+      "standardFlowEnabled": false,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": true,
+      "authorizationServicesEnabled": false,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "secret"
+    }
+  ],
+  "users": [
+    {
+      "username": "user",
+      "enabled": true,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "password"
+        }
+      ]
+    }
+  ]
+}
