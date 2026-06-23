@@ -1,0 +1,13 @@
+version: '3.8'
+
+services:
+  market:
+    build:
+      context: ./market
+      dockerfile: Dockerfile
+    depends_on:
+      - payments
+  payments:
+    build:
+      context: ./payments
+      dockerfile: Dockerfile

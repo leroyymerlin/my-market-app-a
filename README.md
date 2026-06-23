@@ -1,5 +1,6 @@
 # my-market-app
 
+# market
 Веб-приложение представляет собой витрину товаров, которые пользователь может положить в корзину и купить.
 
 Приложение состоит из шести основных частей (модулей): 
@@ -17,31 +18,56 @@
 * сверху строка поиска с фильтрацией по названию (можно просто по вхождению слова в название/описание товара);
 * сверху доступна сортировка по цене, алфавиту.
 
-Все доступные эндпоинты описаны в классе **JdbcNativeBlogPostRepository**
+Все доступные эндпоинты описаны в классе **MarketController**
 
 **Стек**
 Java 21
-Spring Boot (Web, Data JDBC)
-H2 Database
+Spring WebFlux
+Redis
+OpenAPI 3.0
+Thymeleaf
 Maven
 
-**Запуск**
+**База данных**
+Redis
+H2
 
-**Приложение запускается с помощью команды:**
+# payments
 
-mvn spring-boot:run
+Сервис платежей предоставляет два эндпоинта:
 
-**Приложение будет доступно по адресу:**
-http://localhost:8080
+GET /payment/balance – получить текущий баланс
+POST /payment/charge – списать сумму с баланса
+
+**Стек**
+Java 21
+Spring WebFlux
+OpenAPI 3.0
+Maven
+
+
+
+
+**Запуск мультимодульного приложения**
+
+1) сперва соберите jar файлы:
+mvn clean package -DskipTests (с пропуском тестов)
+mvn clean package (без пропуска тестов)
+2) запуск с помощью докера:
+docker-compose up --build
+
+Переменные можно задать в Dockerfile модулей.
 
 **Структура проекта**
-
-* model — классы Item, Order, Paging
-* repository — доступ к базе данных через JdbcTemplate
-* service — бизнес-логика
-* controller — REST-эндпоинты
-
-**База данных**
-Используется встроенная H2 (in-memory).
-Схема и тестовые данные создаются автоматически из файла schema.sql при каждом запуске.
+my-market-app/
+        docker-compose.yml
+        pom.xml
+        market/
+            Dockerfile
+			pom.xml
+            src/
+        payments/
+             Dockerfile
+			 pom.xml
+		     src/
 
